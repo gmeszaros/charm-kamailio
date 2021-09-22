@@ -15,11 +15,12 @@ develop a new k8s charm using the Operator Framework:
 import logging
 
 from charms.nginx_ingress_integrator.v0.ingress import IngressRequires
-from charmhelpers.core.templating import render
+# from charmhelpers.core.templating import render
+# from subprocess import check_call, CalledProcessError
 from ops.charm import CharmBase
 from ops.framework import StoredState
 from ops.main import main
-from ops.model import ActiveStatus
+from ops.model import ActiveStatus, BlockedStatus
 
 logger = logging.getLogger(__name__)
 
@@ -32,13 +33,10 @@ class KamailioCharm(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
         self.framework.observe(self.on.config_changed, self._on_config_changed)
-        self.framework.observe(self.on.fortune_action, self._on_fortune_action)
         self.framework.observe(self.on.kamctl_action, self._on_kamctl_action)
         self._stored.set_default(
             external_url=self.app.name,
             tls_secret_name="",
-            username="admin",
-            timezone="Europe/London",
             bind_address_port=self.model.config["bind-address-port"]
         )
 
@@ -113,9 +111,10 @@ class KamailioCharm(CharmBase):
         """
         args = event.params["args"]
         if args:
-            event.fail(args)
+            event.set_results({"kamctl called with args": "Currently not implemented."})
+            # check_call(["kamctl", args])
         else:
-            event.set_results({"fortune": "A bug in the code is worth two in the documentation."})
+            event.set_results({"kamctl called": "Currently not implemented."})
 
     @property
     def _external_url(self):
@@ -135,24 +134,25 @@ class KamailioCharm(CharmBase):
 
     def _render_kamailio_config(self):
         logger.warning("in _render_kamailio_config: %s" % self.model.config["bind-address-port"])
-        #vhost_file = "/etc/kamailio/kamailio-local.cfg"
-        #vhost_template = 'kamailio-local.cfg.j2'
-        #context = {
-        #    'bind_address_port': self._stored.bind_address_port
-        #}
-        #render(vhost_template, vhost_file, context, perms=0o755)
-        # TODO: change config value on running container file
-        # Update port to 8888 and restart service
+        # vhost_file = "/etc/kamailio/kamailio-local.cfg"
+        # vhost_template = 'kamailio-local.cfg.j2'
+        # context = {
+        #     'bind_address_port': self._stored.bind_address_port
+        # }
+        # render(vhost_template, vhost_file, context, perms=0o755)
+        #  TODO: change config value on running container file
+        #  Update port to 8888 and restart service
         container = self.unit.get_container("kamailio")
-        #infos = container.list_files('/etc/kamailio/', pattern='*.cfg')
-        #logger.info('config files: %s', infos)
+        # infos = container.list_files('/etc/kamailio/', pattern='*.cfg')
+        # logger.info('config files: %s', infos)
 
-        #config = container.pull('/etc/kamailio/kamailio.cfg').read()
-        #if 'listen_port =' not in config:
-        #    config += '\nlisten_port = ' + self._stored.bind_address_port + '\n'
-        #else:
-        config = "listen="+self.model.config["bind-address-port"]
+        # config = container.pull('/etc/kamailio/kamailio.cfg').read()
+        # if 'listen_port =' not in config:
+        #     config += '\nlisten_port = ' + self._stored.bind_address_port + '\n'
+        # else:
+        config = "listen=" + self.model.config["bind-address-port"]
         container.push('/etc/kamailio/kamailio-local.cfg', config)
+
 
 if __name__ == "__main__":
     main(KamailioCharm)
