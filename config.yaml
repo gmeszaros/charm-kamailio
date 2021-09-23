@@ -9,6 +9,9 @@ options:
     description: Configure you want Kamailio to bind on a specific interface/port/proto
                  (default bind on all available)
     type: string
+  sip-domain:
+    default: 'localhost'
+    description: Your SIP domain
   external-url:
     type: string
     description: "The hostname of the service to create an ingress for."

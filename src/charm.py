@@ -33,7 +33,7 @@ class KamailioCharm(CharmBase):
         super().__init__(*args)
 
         self.framework.observe(self.on.config_changed,
-                self._on_config_changed)
+                               self._on_config_changed)
 
         # Observe action events
         action_event_observer_mapping = {
@@ -49,7 +49,8 @@ class KamailioCharm(CharmBase):
         self._stored.set_default(
             external_url=self.app.name,
             tls_secret_name="",
-            bind_address_port=self.model.config["bind-address-port"]
+            bind_address_port=self.model.config["bind-address-port"],
+            sip_domain=self.model.config["sip-domain"]
         )
 
         self.ingress = IngressRequires(self, self._ingress_config)
@@ -83,6 +84,11 @@ class KamailioCharm(CharmBase):
             self._stored.bind_address_port_port = self.model.config["bind-address-port"]
             self._render_kamailio_config()
 
+        if "sip-domain" in self.model.config and \
+                self.model.config["sip-domain"] != self._stored.sip_domain:
+            self._stored.bind_address_port_port = self.model.config["sip-domain"]
+            self._render_kamctlrc_config()
+
         plan = container.get_plan()
 
         if plan.services != layer["services"]:
@@ -95,7 +101,7 @@ class KamailioCharm(CharmBase):
             container.start("kamailio")
             logging.info("Restarted kamailio service")
 
-        self.unit.status = ActiveStatus(f"Container is running")
+        self.unit.status = ActiveStatus(f'{"Container is running"}')
 
     def _kamailio_layer(self) -> dict:
         """Generate Pebble Layer for Kamailio"""
@@ -162,6 +168,14 @@ class KamailioCharm(CharmBase):
             ingress_config["tls-secret-name"] = tls_secret_name
         return ingress_config
 
+    def _render_kamctlrc_config(self):
+        logger.warning("in _render_kamctlrc_config: %s" % self.model.config["sip-domain"])
+        container = self.unit.get_container("kamailio")
+        config = container.pull('/etc/kamailio/kamctlrc').read()
+        logger.warning("kamctlrc: %s" % config)
+        config = "SIP-DOMAIN=" + self.model.config["sip-domain"]
+        container.push('/etc/kamailio/kamctlrc.cfg', config)
+
     def _render_kamailio_config(self):
         logger.warning("in _render_kamailio_config: %s" % self.model.config["bind-address-port"])
         container = self.unit.get_container("kamailio")
@@ -173,21 +187,21 @@ class KamailioCharm(CharmBase):
         if container.get_service("kamailio").current == ServiceStatus.ACTIVE:
             container.stop("kamailio")
         container.start("kamailio")
-        self.unit.status = ActiveStatus(f"Container is running")
+        self.unit.status = ActiveStatus(f'{"Container is running"}')
 
     def _start_kamailio(self):
         container = self.unit.get_container("kamailio")
         if container.get_service("kamailio").current == ServiceStatus.ACTIVE:
             raise Exception("kamailio service is already active")
         container.start("kamailio")
-        self.unit.status = ActiveStatus(f"Container is running")
+        self.unit.status = ActiveStatus(f'{"Container is running"}')
 
     def _stop_kamailio(self):
         container = self.unit.get_container("kamailio")
         if container.get_service("kamailio").current != ServiceStatus.ACTIVE:
             raise Exception("kamailio service is not running")
         container.stop("kamailio")
-        self.unit.status = BlockedStatus(f"Container Stopped")
+        self.unit.status = BlockedStatus(f'{"Container Stopped"}')
 
 
 if __name__ == "__main__":
