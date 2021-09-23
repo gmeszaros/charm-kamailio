@@ -15,12 +15,11 @@ develop a new k8s charm using the Operator Framework:
 import logging
 
 from charms.nginx_ingress_integrator.v0.ingress import IngressRequires
-# from charmhelpers.core.templating import render
-# from subprocess import check_call, CalledProcessError
 from ops.charm import CharmBase
 from ops.framework import StoredState
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus
+from ops.pebble import ServiceStatus
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +31,21 @@ class KamailioCharm(CharmBase):
 
     def __init__(self, *args):
         super().__init__(*args)
-        self.framework.observe(self.on.config_changed, self._on_config_changed)
-        self.framework.observe(self.on.kamctl_action, self._on_kamctl_action)
+
+        self.framework.observe(self.on.config_changed,
+                self._on_config_changed)
+
+        # Observe action events
+        action_event_observer_mapping = {
+            "restart": self._on_restart_action,
+            "start": self._on_start_action,
+            "stop": self._on_stop_action,
+            "kamctl": self._on_kamctl_action,
+        }
+        for event, observer in action_event_observer_mapping.items():
+            logger.debug(f"event: {event}")
+            self.framework.observe(self.on[event].action, observer)
+
         self._stored.set_default(
             external_url=self.app.name,
             tls_secret_name="",
@@ -44,6 +56,8 @@ class KamailioCharm(CharmBase):
 
     def _on_config_changed(self, event):
         """Handle the config-changed event"""
+
+        logging.debug('Handling Juju config change')
 
         container = self.unit.get_container("kamailio")
 
@@ -81,11 +95,12 @@ class KamailioCharm(CharmBase):
             container.start("kamailio")
             logging.info("Restarted kamailio service")
 
-        self.unit.status = ActiveStatus()
+        self.unit.status = ActiveStatus(f"Container is running")
 
-    def _kamailio_layer(self):
+    def _kamailio_layer(self) -> dict:
+        """Generate Pebble Layer for Kamailio"""
 
-        layer = {
+        return {
             "summary": "kamailio layer",
             "description": "pebble config layer for kamailio",
             "services": {
@@ -97,20 +112,35 @@ class KamailioCharm(CharmBase):
                 }
             },
         }
-        return layer
+
+    def _on_restart_action(self, event):
+        """Observer for restart action event"""
+        try:
+            self._restart_kamailio()
+            event.set_results({"output": "service restarted"})
+        except Exception as e:
+            event.fail(f"Failed restarting kamailio: {e}")
+
+    def _on_start_action(self, event):
+        """Observer for start action event"""
+        try:
+            self._start_kamailio()
+            event.set_results({"output": "service started"})
+        except Exception as e:
+            event.fail(f"Failed starting kamailio: {e}")
+
+    def _on_stop_action(self, event):
+        """Observer for stop action event"""
+        try:
+            self._stop_kamailio()
+            event.set_results({"output": "service stopped"})
+        except Exception as e:
+            event.fail(f"Failed stopping kamailio: {e}")
 
     def _on_kamctl_action(self, event):
-        """Just an example to show how to receive actions.
+        """Observer for kamctl action event"""
 
-        TEMPLATE-TODO: change this example to suit your needs.
-        If you don't need to handle actions, you can remove this method,
-        the hook created in __init__.py for it, the corresponding test,
-        and the actions.py file.
-
-        Learn more about actions at https://juju.is/docs/sdk/actions
-        """
-        args = event.params["args"]
-        if args:
+        if event.params["args"]:
             event.set_results({"kamctl called with args": "Currently not implemented."})
             # check_call(["kamctl", args])
         else:
@@ -134,24 +164,30 @@ class KamailioCharm(CharmBase):
 
     def _render_kamailio_config(self):
         logger.warning("in _render_kamailio_config: %s" % self.model.config["bind-address-port"])
-        # vhost_file = "/etc/kamailio/kamailio-local.cfg"
-        # vhost_template = 'kamailio-local.cfg.j2'
-        # context = {
-        #     'bind_address_port': self._stored.bind_address_port
-        # }
-        # render(vhost_template, vhost_file, context, perms=0o755)
-        #  TODO: change config value on running container file
-        #  Update port to 8888 and restart service
         container = self.unit.get_container("kamailio")
-        # infos = container.list_files('/etc/kamailio/', pattern='*.cfg')
-        # logger.info('config files: %s', infos)
-
-        # config = container.pull('/etc/kamailio/kamailio.cfg').read()
-        # if 'listen_port =' not in config:
-        #     config += '\nlisten_port = ' + self._stored.bind_address_port + '\n'
-        # else:
         config = "listen=" + self.model.config["bind-address-port"]
         container.push('/etc/kamailio/kamailio-local.cfg', config)
+
+    def _restart_kamailio(self):
+        container = self.unit.get_container("kamailio")
+        if container.get_service("kamailio").current == ServiceStatus.ACTIVE:
+            container.stop("kamailio")
+        container.start("kamailio")
+        self.unit.status = ActiveStatus(f"Container is running")
+
+    def _start_kamailio(self):
+        container = self.unit.get_container("kamailio")
+        if container.get_service("kamailio").current == ServiceStatus.ACTIVE:
+            raise Exception("kamailio service is already active")
+        container.start("kamailio")
+        self.unit.status = ActiveStatus(f"Container is running")
+
+    def _stop_kamailio(self):
+        container = self.unit.get_container("kamailio")
+        if container.get_service("kamailio").current != ServiceStatus.ACTIVE:
+            raise Exception("kamailio service is not running")
+        container.stop("kamailio")
+        self.unit.status = BlockedStatus(f"Container Stopped")
 
 
 if __name__ == "__main__":

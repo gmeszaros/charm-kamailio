@@ -110,6 +110,17 @@ The service is now available and interface binding can be adjusted by running:
 juju config kamailio bind-address-port='udp:0.0.0.0:5060'
 ```
 
+
+## Hacking
+Juju Actions and config options should be used to manage and configure the application, 
+but it is also possible to edit the Kamailio cfg files directly inside the running containers.
+Be aware that those changes will be lost on any configuration changes or restart of the units.
+To shell in to a running unit, run the following command:
+
+```bash
+kubectl -n development  exec -it -c kamailio kamailio-0 -- bash
+```
+
 ## Testing
 
 ```bash

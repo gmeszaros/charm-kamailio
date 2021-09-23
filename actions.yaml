@@ -1,19 +1,15 @@
 # Copyright 2021 Gabor Meszaros
 # See LICENSE file for licensing details.
-#
-# TEMPLATE-TODO: change this example to suit your needs.
-# If you don't need actions, you can remove the file entirely.
-# It ties in to the example _on_fortune_action handler in src/charm.py
-#
-# Learn more about actions at: https://juju.is/docs/sdk/actions
 
-fortune:
-  description: Returns a pithy phrase.
-  params:
-    fail:
-      description: "Fail with this message"
-      type: string
-      default: ""
+# Service lifecycle
+restart:
+  description: Restart Kamailio service
+start:
+  description: Start Kamailio service
+stop:
+  description: Stop Kamailio service
+
+# Application management
 kamctl:
   description: Runs the kamctl command to manage and control Kamailio SIP server
   params:
