@@ -110,6 +110,29 @@ The service is now available and interface binding can be adjusted by running:
 juju config kamailio bind-address-port='udp:0.0.0.0:5060'
 ```
 
+## Publishing to charmhub
+Once the charm package has been built, upload and publish it to the charmhub.io store.
+Since there is a limitation on how charm names can be reserved, there may be a need to
+rename the application. In that case, edit the metadata.yaml name value to the one that
+can be registered.
+
+```bash
+$ charmcraft register ch:gabor-meszaros-kamailio
+$ charmcraft upload gabor-meszaros-kamailio_ubuntu-20.04-amd64.charm
+Revision 1 of 'gabor-meszaros-kamailio' created
+
+$ charmcraft release gabor-meszaros-kamailio --revision=1 --channel=edge
+```
+
+Deploy the newly released application from the store:
+```bash
+juju deploy ch:gabor-meszaros-kamailio --channel edge  --resource kamailio-image=kamailio/kamailio:5.3.3-stretch
+```
+or issue upgrade:
+```bash
+$ juju upgrade-charm gabor-meszaros-kamailio --channel edge
+```
+
 
 ## Hacking
 Juju Actions and config options should be used to manage and configure the application, 
