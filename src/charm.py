@@ -172,9 +172,10 @@ class KamailioCharm(CharmBase):
         logger.warning("in _render_kamctlrc_config: %s" % self.model.config["sip-domain"])
         container = self.unit.get_container("kamailio")
         config = container.pull('/etc/kamailio/kamctlrc').read()
+        container.push('/etc/kamailio/kamctlrc.bak', config)
         logger.warning("kamctlrc: %s" % config)
         config = "SIP-DOMAIN=" + self.model.config["sip-domain"]
-        container.push('/etc/kamailio/kamctlrc.cfg', config)
+        container.push('/etc/kamailio/kamctlrc', config)
 
     def _render_kamailio_config(self):
         logger.warning("in _render_kamailio_config: %s" % self.model.config["bind-address-port"])
